@@ -6,6 +6,7 @@
 #include "gameplay/economics/currencies.h"
 #include "gameplay/mechanics/condition.h"
 #include "gameplay/mechanics/magic_item.h"
+#include "gameplay/magic/magic_utils.h"
 #include "gameplay/fight/fight_messages.h"
 
 #include "administration/ban.h"
@@ -474,7 +475,7 @@ void do_stat_character(CharData *ch, CharData *k, const int virt) {
 					continue;
 				}
 				if (k->HaveFeat(feat.GetId())) {
-					parts.push_back(fmt::sprintf("'%s'", feat.GetCName()));
+					parts.push_back(feat.GetCName());
 				}
 			}
 			SendMsgToChar(utils::OutWordsList(parts, list_width, ", ", "&GСпособности:&c ") + "&n\r\n", ch);
@@ -678,8 +679,13 @@ void do_stat_character(CharData *ch, CharData *k, const int virt) {
 		}
 
 		std::string quested(k->quested_print());
-		if (!quested.empty())
-			SendMsgToChar(ch, "Выполнил квесты:\r\n%s\r\n", quested.c_str());
+		if (!quested.empty()) {
+			// issue #3429: список выполненных квестов бывает очень длинным --
+			// переносим каждую строку (зону) по ширине экрана через WrapText.
+			const size_t width = (!ch->IsNpc() && ch->player_specials->saved.stringLength > 0)
+					? ch->player_specials->saved.stringLength : 120;
+			SendMsgToChar(ch, "Выполнил квесты:\r\n%s\r\n", utils::WrapText(quested, width).c_str());
+		}
 
 		if (NORENTABLE(k)) {
 			snprintf(buf, sizeof(buf), "Не может уйти на постой %ld\r\n",
@@ -946,8 +952,7 @@ void do_stat_object(CharData *ch, ObjData *j, const int virt = 0) {
 			}
 			break;
 
-		case EObjType::kScroll:
-		case EObjType::kPotion: {
+		case EObjType::kScroll: {
 			std::ostringstream out;
 			out << "Заклинания: (Уровень - " << GET_OBJ_VAL(j, 0) << ") ";
 			for (auto val = 1; val < 4; ++val) {
@@ -960,6 +965,27 @@ void do_stat_object(CharData *ch, ObjData *j, const int virt = 0) {
 						out << ".";
 					}
 				}
+			}
+			snprintf(buf, sizeof(buf), "%s", out.str().c_str());
+			break;
+		}
+		case EObjType::kPotion: {
+			std::ostringstream out;
+			out << "Заклинания:";
+			const ObjVal::EValueKey spell_keys[3] = {
+				ObjVal::EValueKey::kPotionSpell1Num,
+				ObjVal::EValueKey::kPotionSpell2Num,
+				ObjVal::EValueKey::kPotionSpell3Num};
+			for (const auto key : spell_keys) {
+				const auto spell_id = static_cast<ESpell>(j->GetPotionValueKey(key));
+				if (MUD::Spell(spell_id).IsValid()) {
+					const int potency = static_cast<int>(PotionPotency(j, spell_id) + 0.5f);
+					out << " " << MUD::Spell(spell_id).GetName()
+						<< " (сила " << potency << "),";
+				}
+			}
+			if (out.str().back() == ',') {
+				out.seekp(-1, out.end);
 			}
 			snprintf(buf, sizeof(buf), "%s", out.str().c_str());
 			break;
