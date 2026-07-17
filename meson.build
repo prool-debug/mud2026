@@ -13,7 +13,22 @@ project_args = []
 dependencies = []
 
 build_profile = get_option('build_profile')
+
+# hunt: собираем ровно как release, но с -D_FORTIFY_SOURCE=2 -- дешёвый (околонулевой
+# оверхед) ловец переполнений фиксированных буферов в sprintf/strcpy/memcpy и т.п.,
+# падает в момент записи за границу с бэктрейсом. Дальше ведём себя как release.
+fortify_source = false
+if build_profile == 'hunt'
+    build_profile = 'release'
+    fortify_source = true
+endif
+
 buildtype = {'release': 'Release', 'debug': 'Debug', 'dev': 'Dev', 'fasttest': 'FastTest', 'custom': 'Custom'}[build_profile]
+if fortify_source
+    # hunt ведёт себя как release, но в версии/summary помечаем отдельно, чтобы было
+    # видно, что бинарь собран с _FORTIFY_SOURCE (иначе писал бы "Release").
+    buildtype = 'Hunt'
+endif
 
 if build_profile in ['dev', 'fasttest']
     project_args += ['-DTEST_BUILD']
@@ -37,6 +52,10 @@ if cpp.get_argument_syntax() == 'gcc'
         project_args += ['-Ofast']
     endif
     project_args += ['-Wno-format-truncation']
+    if fortify_source
+        # -U на случай, если тулчейн уже определил _FORTIFY_SOURCE (иначе redefine-варнинг)
+        project_args += ['-U_FORTIFY_SOURCE', '-D_FORTIFY_SOURCE=2']
+    endif
     if host_system != 'windows' and build_profile != 'fasttest'
         add_project_link_arguments('-rdynamic', language: 'cpp')
     endif
