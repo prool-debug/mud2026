@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 #include "administration/privilege.h"
 
 #include "gameplay/mechanics/groups.h"
@@ -367,6 +368,35 @@ int MagicItemSkill(const ObjData *item) {
 int MagicItemStat(const ObjData *item) {
 	const int stored = item->GetPotionValueKey(ObjVal::EValueKey::kMakerStat);
 	return (stored >= 0) ? stored : kAuthoredPotionKeyStat;   // absent (-1) -> authored; a stored 0 stays 0
+}
+
+// issue.magic-items: перечень заклинаний предмета с их силой -- один формат для stat и опознания.
+// Заклинания лежат в extra_values (сырые val[] у свитков, зелий, посохов и жезлов нулевые).
+// issue #3611: см. описание в magic_utils.h.
+bool IsPotencyFromProto(const CObjectPrototype *item) {
+	return item->GetPotionValueKey(ObjVal::EValueKey::kMakerSkill) < 0
+			&& item->GetPotionValueKey(ObjVal::EValueKey::kPotionPotency) <= 0;
+}
+
+std::vector<std::string> SpellItemSpellsWithPotency(const ObjData *item) {
+	const bool from_proto = IsPotencyFromProto(item);
+
+	std::vector<std::string> spells;
+	for (int pos = 1; pos <= 3; ++pos) {
+		const auto spell_id = static_cast<ESpell>(item->GetSpellItemSpellNum(pos));
+		if (!MUD::Spell(spell_id).IsValid()) {
+			continue;
+		}
+		const int potency = static_cast<int>(MagicItemPotency(item, spell_id) + 0.5f);
+		// имя заклинания выделяем цветом, как в списке заклинаний моба
+		spells.push_back(from_proto
+				? fmt::format("{}{}{} (сила {}, из прототипа)",
+						kColorCyn, MUD::Spell(spell_id).GetName(), kColorNrm, potency)
+				: fmt::format("{}{}{} (сила {})",
+						kColorCyn, MUD::Spell(spell_id).GetName(), kColorNrm, potency));
+	}
+
+	return spells;
 }
 
 float CalcCastPotency(const RollResult &potency) {

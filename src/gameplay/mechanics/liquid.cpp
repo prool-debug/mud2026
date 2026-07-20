@@ -593,6 +593,9 @@ void name_to_drinkcon(ObjData *obj, int type) {
 		snprintf(new_name, kMaxInputLength, "%s с %s", obj->get_PName(name_case).c_str(), potion_name);
 		obj->set_PName(name_case, new_name);
 	}
+	// issue #3620: имя сосуда больше не совпадает с прототипом -- без этой пометки olc при правке
+	// прототипа восстановит исходное имя, и сосуд перестанет показывать свое содержимое.
+	obj->set_is_rename(true);
 }
 
 std::string print_spell(const ObjData *obj, int num) {
@@ -607,10 +610,14 @@ std::string print_spell(const ObjData *obj, int num) {
 	// (сила) as a potion, not the retired per-spell level.
 	const int potency = static_cast<int>(MagicItemPotency(obj, spell_id) + 0.5f);
 	char buf_[kMaxInputLength];
-	snprintf(buf_, sizeof(buf_), "Содержит заклинание: %s%s (сила %d)%s\r\n",
+	// issue #3611: у вещи из прототипа сила посчитана по зашитым умолчаниям, а не по умению
+	// мастера -- помечаем так же, как у свитков, зелий, посохов и жезлов.
+	snprintf(buf_, sizeof(buf_), "%sСодержит заклинание:%s %s%s (сила %d%s)%s\r\n",
+			 kColorGrn, kColorNrm,
 			 kColorCyn,
 			 MUD::Spell(spell_id).GetCName(),
 			 potency,
+			 IsPotencyFromProto(obj) ? ", из прототипа" : "",
 			 kColorNrm);
 
 	return buf_;
