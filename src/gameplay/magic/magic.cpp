@@ -514,7 +514,7 @@ bool RunWholeCastWards(ActionContext &ctx, bool is_magic) {
 					// otherwise the fixed prob (spell-side <reflection> / flat-prob reflect).
 					chance = (refl.max > 0)
 						? std::clamp(static_cast<int>(ward.second - CalcCastPotency(ctx.potency())),
-									 refl.min, refl.max)
+									 refl.min, std::max(refl.min, refl.max))
 						: refl.prob;
 				} else if (absb.chance != EApply::kNone) {
 					// stat-driven: capped GET_<apply>(victim), same clamp as the elemental-resist path.
@@ -1884,6 +1884,12 @@ void ApplyHeal(CharData *victim, int hit, int extra_percent) {
 		return;
 	}
 	const int cap = max_hp + max_hp * extra_percent / 100;
+	// HP уже выше оверхил-капа (накопилось прошлыми кастами или упал max_hp) -- лечить нечем и
+	// нельзя урезать. Без этой проверки std::clamp получал lo(get_hit) > hi(cap) и падал по
+	// glibc-ассерту (issue #3631).
+	if (victim->get_hit() >= cap) {
+		return;
+	}
 	victim->set_hit(std::clamp(victim->get_hit() + hit, victim->get_hit(), cap));
 }
 
