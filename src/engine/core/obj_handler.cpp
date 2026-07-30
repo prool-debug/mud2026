@@ -104,7 +104,7 @@ bool PlaceObjToRoom(ObjData *object, RoomRnum room) {
 				|| object->has_flag(EObjFlag::kAppearsFullmoon)
 				|| object->has_flag(EObjFlag::kAppearsNight))) {
 			debug::backtrace(runtime_config.logs(SYSLOG).handle());
-			sprintf(buf, "Попытка поместить объект в виртуальную комнату: objvnum %d, objname %s, roomvnum %d, создан coredump",
+			sprintf(buf, "Попытка поместить объект в виртуальную комнату: objvnum %d, objname %s, roomvnum %d (backtrace в syslog)",
 					object->get_vnum(), object->get_PName(grammar::ECase::kNom).c_str(), world[room]->vnum);
 			mudlog(buf, CMP, kLvlGod, SYSLOG, true);
 		}
@@ -205,6 +205,7 @@ void RemoveObjFromRoom(ObjData *object) {
 	}
 
 	{
+		log("[objlife] RemoveObjFromRoom %s #%d room %d at %s", object->get_PName(grammar::ECase::kNom).c_str(), GET_OBJ_VNUM(object), get_room_where_obj(object), ObjLocDesc(object).c_str());
 		auto &list = world[object->get_in_room()]->contents;
 		list.remove(object);
 	}
@@ -247,6 +248,7 @@ void RemoveObjFromObj(ObjData *obj) {
 		mudlog("SYSERR: trying to illegally extract obj from obj.");
 		return;
 	}
+	log("[objlife] RemoveObjFromObj %s #%d room %d at %s", obj->get_PName(grammar::ECase::kNom).c_str(), GET_OBJ_VNUM(obj), get_room_where_obj(obj), ObjLocDesc(obj).c_str());
 	auto obj_from = obj->get_in_obj();
 	auto head = obj_from->get_contains();
 	obj->remove_me_from_contains_list(head);
@@ -274,6 +276,15 @@ void object_list_new_owner(ObjData *list, CharData *ch) {
 		object_list_new_owner(list->get_next_content(), ch);
 		list->set_carried_by(ch);
 	}
+}
+
+// issue #3646: краткое описание текущего носителя предмета для [objlife]-логов.
+std::string ObjLocDesc(ObjData *obj) {
+	if (auto *h = obj->get_carried_by()) { return std::string("inv:") + GET_NAME(h) + " #" + std::to_string(GET_MOB_VNUM(h)); }
+	if (auto *h = obj->get_worn_by()) { return std::string("worn:") + GET_NAME(h) + " #" + std::to_string(GET_MOB_VNUM(h)); }
+	if (auto *c = obj->get_in_obj()) { return std::string("cont:") + c->get_PName(grammar::ECase::kNom).c_str() + " #" + std::to_string(GET_OBJ_VNUM(c)); }
+	if (obj->get_in_room() != kNowhere) { return "room"; }
+	return "nowhere";
 }
 
 RoomVnum get_room_where_obj(ObjData *obj, bool deep) {
@@ -354,6 +365,7 @@ void ExtractObjFromWorld(ObjData *obj, bool showlog) {
 	utils::CExecutionTimer timer;
 
 	strcpy(name, obj->get_PName(grammar::ECase::kNom).c_str());
+	log("[objlife] ExtractObjFromWorld %s #%d room %d at %s", obj->get_PName(grammar::ECase::kNom).c_str(), GET_OBJ_VNUM(obj), get_room_where_obj(obj), ObjLocDesc(obj).c_str());
 	if (showlog) {
 		log("[Extract obj] Start for: %s vnum == %d room = %d timer == %d",
 				name, GET_OBJ_VNUM(obj), roomload, obj->get_timer());

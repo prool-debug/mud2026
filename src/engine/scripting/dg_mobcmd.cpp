@@ -1458,7 +1458,9 @@ const struct mob_command_info mob_cmd_info[] =
 		{"RESERVED", EPosition::kDead, nullptr, 0, false},
 		{"masound", EPosition::kDead, do_masound, -1, false},
 		{"mkill", EPosition::kStand, do_mkill, -1, false},
-		{"mjunk", EPosition::kSit, do_mjunk, -1, true},
+		// issue #3646: cleanup command -- must run in ANY position (paired with mpurge=kDead),
+		// else a stun-lagged mob skips mjunk but still mpurges and leaks worn gear to the room.
+		{"mjunk", EPosition::kDead, do_mjunk, -1, true},
 		{"mdamage", EPosition::kDead, do_mdamage, -1, false},
 		{"mdoor", EPosition::kDead, do_mdoor, -1, false},
 		{"mecho", EPosition::kDead, do_mecho, -1, false},
@@ -1484,7 +1486,7 @@ const struct mob_command_info mob_cmd_info[] =
 		{"mzoneecho", EPosition::kDead, do_mzoneecho, -1, false},
 		{"asound", EPosition::kDead, do_masound, -1, false},
 		{"kill", EPosition::kStand, do_mkill, -1, false},
-		{"junk", EPosition::kSit, do_mjunk, -1, true},
+		{"junk", EPosition::kDead, do_mjunk, -1, true},
 		{"damage", EPosition::kDead, do_mdamage, -1, false},
 		{"door", EPosition::kDead, do_mdoor, -1, false},
 		{"echo", EPosition::kDead, do_mecho, -1, false},
@@ -1545,13 +1547,13 @@ bool mob_script_command_interpreter(CharData *ch, char *argument, Trigger *trig)
 	if (!(CheckScript(ch, MTRIG_DAMAGE) || CheckScript(ch, MTRIG_DEATH))) {
 		if (!use_in_stoped && !mob_cmd_info[cmd].use_in_stoped
 				&& (AFF_FLAGGED(ch, EAffect::kHold)
-						|| AFF_FLAGGED(ch, EAffect::kStopFight)
-						|| AFF_FLAGGED(ch, EAffect::kMagicStopFight))
-				&& !trig->add_flag) {
-			if (!strcmp(mob_cmd_info[cmd].command, "mload") || (!strcmp(mob_cmd_info[cmd].command, "load"))) {
-				sprintf(buf, "command_interpreter: моб в стане, mload пропущен, команда: %s", argument);
+				|| AFF_FLAGGED(ch, EAffect::kStopFight)
+				|| AFF_FLAGGED(ch, EAffect::kMagicStopFight))) {
+			// issue #3523: моб в стане -> команду не теряем: вешаем триггеру wait
+			// 1 RL-сек, после стана script_driver повторит её (TRIG_FROM_LINE).
+			hang_trig_wait(ch, trig, MOB_TRIGGER, kPassesPerSec, true);
+			sprintf(buf, "mob command_interpreter: моб в стане, trigger встал на wait 1");
 				mob_log(ch, trig, buf);
-			}
 			return false;
 		}
 	}
