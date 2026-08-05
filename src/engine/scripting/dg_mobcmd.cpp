@@ -1554,10 +1554,21 @@ bool mob_script_command_interpreter(CharData *ch, char *argument, Trigger *trig)
 				|| AFF_FLAGGED(ch, EAffect::kMagicStopFight)
 				|| AFF_FLAGGED(ch, EAffect::kSleep)
 				|| ch->get_wait() > 0)) {
-		if (AFF_FLAGGED(ch, EAffect::kHold)) { RemoveAffectFromChar(ch, EAffect::kHold); }
-		if (AFF_FLAGGED(ch, EAffect::kStopFight)) { RemoveAffectFromChar(ch, EAffect::kStopFight); }
-		if (AFF_FLAGGED(ch, EAffect::kMagicStopFight)) { RemoveAffectFromChar(ch, EAffect::kMagicStopFight); }
-		if (AFF_FLAGGED(ch, EAffect::kSleep)) { RemoveAffectFromChar(ch, EAffect::kSleep); }
+		// issue #3658: RemoveAffectFromChar убирает аффект из списка ch->affected, но сводный
+		// битвектор affected_by не трогает -- его пересобирает affect_total (отработает в конце
+		// боевого раунда, гонять его отдельно тут незачем). До пересчета AFF_FLAGGED продолжает
+		// отвечать "да", условие блока остается истинным, и каждая следующая команда триггера
+		// снова шлет тени в комнату и строку в лог. Поэтому гасим бит сразу руками.
+		const auto strip_control = [ch](EAffect affect) {
+			if (AFF_FLAGGED(ch, affect)) {
+				RemoveAffectFromChar(ch, affect);
+				ch->remove_affect(affect);
+			}
+		};
+		strip_control(EAffect::kHold);
+		strip_control(EAffect::kStopFight);
+		strip_control(EAffect::kMagicStopFight);
+		strip_control(EAffect::kSleep);
 		// issue #3658: именно zero_wait(), а не set_wait(0) -- set_wait игнорирует ноль
 		// (guard "if (_ > 0)" в char_data.cpp), лаг оставался, и каждая следующая команда
 		// триггера снова входила сюда: тени в комнату и строка в лог на каждую.
@@ -1568,8 +1579,11 @@ bool mob_script_command_interpreter(CharData *ch, char *argument, Trigger *trig)
 			char st[] = "";
 			do_stand(ch, st, 0, 0);
 		}
-		sprintf(buf, "mob command_interpreter: моб отжил из лага/стана в HitPercent, проценты жизни %d", GET_TRIG_NARG(trig));
-		mob_log(ch, trig, buf);
+		if (!(ch->GetEnemy()->IsNpc() && !IsCharmice(ch->GetEnemy()))) {
+			sprintf(buf, "mob command_interpreter: моб %s (%d) отжил из лага/стана в HitPercent, проценты жизни %d, сражается с %s", 
+					ch->get_name().c_str(), GET_MOB_VNUM(ch), GET_TRIG_NARG(trig), ch->GetEnemy()->get_name().c_str());
+			mob_log(ch, trig, buf);
+		}
 	}
 // damage mtrigger срабатывает всегда
 	if (!(CheckScript(ch, MTRIG_DAMAGE) || CheckScript(ch, MTRIG_DEATH))) {
