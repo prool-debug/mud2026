@@ -150,7 +150,6 @@ TimeInfoData time_info;
 ResetQueue reset_q;
 
 
-const char *ZONE_TRAFFIC_FILE = LIB_PLRSTUFF"zone_traffic.xml";
 time_t zones_stat_date;
 
 GameLoader game_loader;
@@ -221,7 +220,7 @@ void LoadSheduledReboot() {
 
 	time_t currTime;
 
-	sch = fopen(LIB_MISC "schedule", "r");
+	sch = fopen(MUD::StateManager().Path(state::EStateFile::kSchedule).c_str(), "r");
 	if (!sch) {
 		log("Error opening schedule");
 		return;
@@ -481,7 +480,7 @@ namespace {
 std::unique_ptr<world_loader::IWorldDataSource> CreateWorldSourceByName(const std::string &name) {
 	if (name == "yaml") {
 #ifdef HAVE_YAML
-		return world_loader::CreateYamlDataSource("world");
+		return world_loader::CreateYamlDataSource("worlddata/world");
 #else
 		log("SYSERR: world source 'yaml' configured but YAML backend is not compiled in");
 		return nullptr;
@@ -489,7 +488,7 @@ std::unique_ptr<world_loader::IWorldDataSource> CreateWorldSourceByName(const st
 	}
 	if (name == "sqlite") {
 #ifdef HAVE_SQLITE
-		return world_loader::CreateSqliteDataSource("world.db");
+		return world_loader::CreateSqliteDataSource("worlddata/world.db");
 #else
 		log("SYSERR: world source 'sqlite' configured but SQLite backend is not compiled in");
 		return nullptr;
@@ -782,9 +781,9 @@ void GameLoader::BootWorld(std::unique_ptr<world_loader::IWorldDataSource> data_
 	if (!data_source)
 	{
 #ifdef HAVE_YAML
-		data_source = world_loader::CreateYamlDataSource("world");
+		data_source = world_loader::CreateYamlDataSource("worlddata/world");
 #elif defined(HAVE_SQLITE)
-		data_source = world_loader::CreateSqliteDataSource("world.db");
+		data_source = world_loader::CreateSqliteDataSource("worlddata/world.db");
 #else
 		data_source = world_loader::CreateLegacyDataSource();
 #endif
@@ -1030,11 +1029,11 @@ void ZoneTrafficSave() {
 		zone_node.append_attribute("traffic") = i.traffic;
 	}
 
-	doc.save_file(ZONE_TRAFFIC_FILE);
+	doc.save_file(MUD::StateManager().Path(state::EStateFile::kZoneTraffic).c_str());
 }
 void zone_traffic_load() {
 	pugi::xml_document doc;
-	pugi::xml_parse_result result = doc.load_file(ZONE_TRAFFIC_FILE);
+	pugi::xml_parse_result result = doc.load_file(MUD::StateManager().Path(state::EStateFile::kZoneTraffic).c_str());
 	if (!result) {
 		snprintf(buf, kMaxStringLength, "...%s", result.description());
 		mudlog(buf, CMP, kLvlImmortal, SYSLOG, true);
@@ -1081,17 +1080,22 @@ void BootMudDataBase() {
         MKDIR(#BASE "/U-Z"); \
         MKDIR(#BASE "/ZZZ")
 
-	MKDIR("etc");
-	MKDIR("etc/board");
-	MKLETTERS(plralias);
-	MKLETTERS(plrobjs);
-	MKLETTERS(plrs);
-	MKLETTERS(plrvars);
-	MKDIR("plrstuff");
-	MKDIR("plrstuff/depot");
-	MKLETTERS(plrstuff / depot);
-	MKDIR("plrstuff/house");
-	MKDIR("stat");
+	MKDIR("userdata");
+	MKDIR("userdata/chardata");
+	MKDIR("userdata/accounts");
+	MKLETTERS(userdata/chardata/aliases);
+	MKLETTERS(userdata/chardata/items);
+	MKLETTERS(userdata/chardata/characters);
+	MKLETTERS(userdata/chardata/variables);
+	MKLETTERS(userdata/chardata/depots);
+	MKDIR("userdata/clans");
+	// issue.misc-migrate: the new world-data dirs (state = server state, userdata =
+	// per-account, worlddata = world content) may be written to at runtime.
+	MKDIR("state");
+	MKDIR("state/statistics");
+	MKDIR("userdata");
+	MKDIR("userdata/boards");
+	MKDIR("worlddata");
 
 #undef MKLETTERS
 #undef MKDIR
@@ -1374,8 +1378,7 @@ void BootMudDataBase() {
 
 	boot_profiler.next_step("Loading privileges and gods list");
 	log("Load privilege and god list.");
-	privilege::Load();
-	MUD::CfgManager().LoadCfg("privilege");  // issue.privilege-rework P1: membership DB (inert until P2)
+	MUD::CfgManager().LoadCfg("privilege");  // membership privilege DB (cfg/privilege.xml)
 
 	// должен идти до резета зон
 	boot_profiler.next_step("Initializing depot system");
@@ -1610,7 +1613,7 @@ int GameLoader::ResaveWorld(const std::string &target_dir, const std::string &ta
 		// location -- which BootWorld used at the compile-time default of
 		// "world" -- before constructing. SaveZone/Save* rebuild their
 		// index.yaml files themselves now, so we don't mirror any indexes here.
-		const std::string load_dir = "world";
+		const std::string load_dir = "worlddata/world";
 		try {
 			fs::create_directories(target_dir);
 			fs::copy_file(load_dir + "/world_config.yaml",
@@ -3586,7 +3589,7 @@ void LoadGlobalUid() {
 
 	global_uid = 0;
 
-	if (!(guid = fopen(LIB_MISC "globaluid", "r"))) {
+	if (!(guid = fopen(MUD::StateManager().Path(state::EStateFile::kGlobalUid).c_str(), "r"))) {
 		log("Can't open global uid file...");
 		return;
 	}
@@ -3598,7 +3601,7 @@ void LoadGlobalUid() {
 void SaveGlobalUID() {
 	FILE *guid;
 
-	if (!(guid = fopen(LIB_MISC "globaluid", "w"))) {
+	if (!(guid = fopen(MUD::StateManager().Path(state::EStateFile::kGlobalUid).c_str(), "w"))) {
 		log("Can't write global uid file...");
 		return;
 	}
@@ -3702,6 +3705,13 @@ int get_filename(const char *orig_name, char *filename, int mode) {
 CharData *find_char(long uid) {
 	auto it = chardata_by_uid.find(uid);
 	if (it != chardata_by_uid.end()) {
+		// Выведенного из мира не отдаем. Убитый персонаж уходит не мгновенно: его выносят из
+		// комнаты (in_room = kNowhere), а из списков вычищают только в конце пульса. До этого
+		// момента все, что успевает выполниться -- триггеры смерти, отложенные команды,
+		// разрешение uid в скриптах -- получало указатель на "живого" мертвеца.
+		if (it->second->in_room == kNowhere) {
+			return nullptr;
+		}
 		return it->second;
 	}
 	return nullptr;

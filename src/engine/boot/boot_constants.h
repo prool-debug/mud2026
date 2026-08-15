@@ -36,40 +36,33 @@ enum SetStuffMode {
 #define LIB_Z       "ZZZ"
 
 #if defined(CIRCLE_MACINTOSH)
-#define LIB_WORLD	":world:"
-#define LIB_TEXT	":text:"
-#define LIB_TEXT_HELP	":text:help:"
-#define LIB_MISC	":misc:"
+#define LIB_WORLD	":worlddata:world:"
+#define LIB_HELP	":help:"
 #define LIB_CFG		":cfg:"
-#define LIB_MISC_CRAFT		":misc:craft:"
-#define LIB_ETC		":etc:"
-#define ETC_BOARD	":etc:board:"
-#define LIB_PLROBJS	":plrobjs:"
-#define LIB_PLRS    ":plrs:"
-#define LIB_PLRALIAS	":plralias:"
-#define LIB_PLRSTUFF ":plrstuff:"
-#define LIB_HOUSE	":plrstuff:house:"
-#define LIB_PLRVARS	":plrvars:"
+#define LIB_USERDATA	":userdata:"
+#define LIB_WORLDDATA	":worlddata:"
+#define BOARDS_DIR	":userdata:boards:"
+#define LIB_PLROBJS	":userdata:chardata:items:"
+#define LIB_PLRS    ":userdata:chardata:characters:"
+#define LIB_PLRALIAS	":userdata:chardata:aliases:"
+#define LIB_CLANS	":userdata:clans:"
+#define LIB_PLRVARS	":userdata:chardata:variables:"
 #define LIB             ":lib:"
 #define SLASH		":"
 #elif defined(CIRCLE_AMIGA) || defined(CIRCLE_UNIX) || defined(CIRCLE_WINDOWS) || defined(CIRCLE_ACORN) || defined(CIRCLE_VMS)
-#define LIB_WORLD     "world/"
-#define LIB_TEXT      "text/"
-#define LIB_TEXT_HELP "text/help/"
+#define LIB_WORLD     "worlddata/world/"
+#define LIB_HELP      "help/"
 #define LIB_CFG         "cfg/"
-#define LIB_MISC      "misc/"
-#define LIB_ACCOUNTS  "plrs/accounts/"
-#define LIB_MISC_CRAFT        "misc/crafts/"
-#define LIB_STAT      "stat/"
-#define LIB_ETC       "etc/"
-#define ETC_BOARD     "etc/board/"
-#define LIB_PLRS      "plrs/"
-#define LIB_PLROBJS   "plrobjs/"
-#define LIB_PLRALIAS  "plralias/"
-#define LIB_PLRSTUFF  "plrstuff/"
-#define LIB_PLRVARS   "plrvars/"
-#define LIB_HOUSE     LIB_PLRSTUFF"house/"
-#define LIB_DEPOT     LIB_PLRSTUFF"depot/"
+#define LIB_ACCOUNTS  "userdata/accounts/"
+#define LIB_USERDATA   "userdata/"
+#define LIB_WORLDDATA  "worlddata/"
+#define BOARDS_DIR  LIB_USERDATA "boards/"
+#define LIB_PLRS      "userdata/chardata/characters/"
+#define LIB_PLROBJS   "userdata/chardata/items/"
+#define LIB_PLRALIAS  "userdata/chardata/aliases/"
+#define LIB_PLRVARS   "userdata/chardata/variables/"
+#define LIB_CLANS     "userdata/clans/"
+#define LIB_DEPOT     "userdata/chardata/depots/"
 #define LIB           "lib/"
 #define SLASH         "/"
 #else
@@ -107,27 +100,18 @@ enum SetStuffMode {
 #define OBJ_PREFIX    LIB_WORLD "obj" SLASH    // object prototypes
 #define ZON_PREFIX    LIB_WORLD "zon" SLASH    // zon defs & command tables
 #define TRG_PREFIX    LIB_WORLD "trg" SLASH    // shop definitions
-#define HLP_PREFIX    LIB_TEXT "help" SLASH    // for HELP <keyword>
+#define HLP_PREFIX    LIB_HELP    // for HELP <keyword>
 #define PLAYER_F_PREFIX LIB_PLRS "" LIB_F
 #define PLAYER_K_PREFIX LIB_PLRS "" LIB_K
 #define PLAYER_P_PREFIX LIB_PLRS "" LIB_P
 #define PLAYER_U_PREFIX LIB_PLRS "" LIB_U
 #define PLAYER_Z_PREFIX LIB_PLRS "" LIB_Z
 
-#define HELP_PAGE_FILE    LIB_TEXT_HELP "screen"    // for HELP <CR>
+#define HELP_PAGE_FILE    LIB_HELP "screen"    // for HELP <CR>
 
-#define PROXY_FILE        LIB_MISC "proxy"    // register proxy list
-#define XNAME_FILE      LIB_MISC "xnames"    // invalid name substrings
-#define ANAME_FILE      LIB_MISC "apr_name" // одобренные имена
-#define DNAME_FILE      LIB_MISC "dis_name" // запрещенные имена
-#define NNAME_FILE      LIB_MISC "new_name" // ждущие одобрения
 // issue.daily-quest: daily_quest.xml перенесён в cfg/quests и грузится через CfgManager.
 
-#define MAIL_FILE        LIB_ETC "plrmail"    // for the mudmail system
-#define BAN_FILE        LIB_ETC "badsites"    // for the siteban system
-#define PROXY_BAN_FILE    LIB_ETC "badproxy"    // for the siteban system
 
-#define WHOLIST_FILE    LIB_STAT "wholist.html"    // for the stat system
 
 enum EBootType : int {
 	DB_BOOT_WLD = 0,

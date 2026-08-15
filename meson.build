@@ -376,6 +376,11 @@ endif
 if luajit_opt != 'disabled'
     feature_flags += 'luajit'
 endif
+# issue: флаг показывался только в сводке meson setup, а в строку версии не попадал --
+# по выводу version нельзя было понять, собран ли форматтер.
+if lua_formatter_enabled
+    feature_flags += 'lua_formatter'
+endif
 if telegram_opt != 'disabled'
     feature_flags += 'telegram'
 endif
@@ -650,6 +655,7 @@ main_sources = files(
   'src/engine/db/id.cpp',
   'src/engine/db/utils_find_obj_id_by_vnum.cpp',
   'src/engine/db/global_objects.cpp',
+  'src/engine/boot/state_manager.cpp',
   'src/gameplay/economics/shops_implementation.cpp',
   'src/engine/db/world_characters.cpp',
   'src/utils/utils_debug.cpp',
