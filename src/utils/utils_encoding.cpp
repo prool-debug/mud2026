@@ -58,7 +58,7 @@ void koi_to_utf8(char *str_i, char *str_o)
 	size_t len_i, len_o = kMaxSockBuf * 6;
 	size_t i;
 
-	if ((cd = iconv_open("UTF-8","KOI8-R")) == (iconv_t) - 1)
+	if ((cd = iconv_open("UTF-8","KOI8-RU")) == (iconv_t) - 1) // prool: KOI8-RU = KOI-8 + russian, ukrainian and belorussian letters, KOI-8R = KOI-8 + only russian letters
 	{
 		printf("koi_to_utf8: iconv_open error\n");
 		return;
@@ -84,7 +84,7 @@ void utf8_to_koi(char *str_i, char *str_o)
 	size_t len_i, len_o = kMaxSockBuf * 6;
 	size_t i;
 
-	if ((cd = iconv_open("KOI8-R", "UTF-8")) == (iconv_t) - 1)
+	if ((cd = iconv_open("KOI8-RU", "UTF-8")) == (iconv_t) - 1)
 	{
 		perror("utf8_to_koi: iconv_open error");
 		return;

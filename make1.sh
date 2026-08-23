@@ -4,4 +4,4 @@
 #
 cp --update=none -r lib.template/* lib
 
-meson setup build -Dbuild_profile=dev -Dyaml=builtin
+meson setup build -Dbuild_profile=dev -Dyaml=builtin -Diconv=auto
