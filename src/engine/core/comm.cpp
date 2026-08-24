@@ -783,6 +783,7 @@ int main_function(int argc, char **argv) {
 	 */
 	printf("[%s] %s\r\n", utils::NowTs().c_str(), circlemud_version);
 	printf("[%s] %s\r\n", utils::NowTs().c_str(), DG_SCRIPT_VERSION);
+	printf("Source https://github.com/prool-debug/mud2026\r\n");
 	if (getcwd(cwd, sizeof(cwd))) {};
 	printf("[%s] Current directory '%s' using '%s' as data directory.\r\n", utils::NowTs().c_str(), cwd, dir);
 	{
