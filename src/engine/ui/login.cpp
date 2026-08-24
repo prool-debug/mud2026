@@ -1507,6 +1507,9 @@ static void HandleNameCase(DescriptorData *d, char *argument, int step) {
 static void HandleInit(DescriptorData *d, char * /*argument*/) {
 	char buffer[kMaxStringLength];
 	// just connected
+
+	iosystem::write_to_output("Dzerkalo MUD\r\n\r\n", d);
+
 {
 	int online_players = 0;
 	for (auto i = descriptor_list; i; i = i->next) {
