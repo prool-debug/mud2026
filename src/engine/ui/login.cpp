@@ -1504,17 +1504,33 @@ static void HandleNameCase(DescriptorData *d, char *argument, int step) {
 	}
 }
 
+#define PROOL_LEN 512
+
+char *strtime(time_t time) // prool: function from source of Crusify MUD
+{
+	char *p = ctime(&time);
+	p[24] = '\0';
+	return p;
+}
+
 static void HandleInit(DescriptorData *d, char * /*argument*/) {
 	char buffer[kMaxStringLength];
+	char prool_buf[PROOL_LEN];
+	time_t		    current_time;	/* time */	
 	// just connected
 
-	iosystem::write_to_output("Dzerkalo MUD\r\n\r\n", d);
+	iosystem::write_to_output("Virtustan-Dzerkalo MUD\r\n\r\n", d);
+
+	time(&current_time);
+	snprintf(prool_buf, PROOL_LEN, "Server time %s your IP %s\r\n\r\n", strtime(current_time), d->host);
+	iosystem::write_to_output(prool_buf, d);
 
 {
 	int online_players = 0;
 	for (auto i = descriptor_list; i; i = i->next) {
 		online_players++;
 	}
+	if (online_players>0) online_players--; // prool: correction
 	sprintf(buffer, "Online: %d\r\n", online_players);
 }
 
