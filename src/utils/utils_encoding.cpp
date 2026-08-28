@@ -14,6 +14,8 @@
 #include <iconv.h>
 #endif
 
+#include "engine/structs/structs.h" // by prool
+
 namespace codepages {
 
 // Tables of raw bytes, spelled as \xNN escapes on purpose. They used to be written as string
