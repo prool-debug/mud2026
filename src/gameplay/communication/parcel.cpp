@@ -321,7 +321,7 @@ void send(CharData *ch, CharData *mailman, long vict_uid, char *arg) {
 			}
 		}
 	} else {
-		int dotmode = find_all_dots(tmp_arg);
+		int dotmode = ParseAllPrefix(tmp_arg);
 		if (dotmode == kFindIndiv) {
 			if (!(obj = get_obj_in_list_vis(ch, tmp_arg, ch->carrying))) {
 				SendMsgToChar(ch, "У вас нет '%s'.\r\n", tmp_arg);
@@ -730,10 +730,10 @@ void save() {
 		log("SYSERR: error opening file: %s! (%s %s %d)", FILE_NAME, __FILE__, __func__, __LINE__);
 		return;
 	}
-	// Граница записи: на диск уходит кодировка мира (сейчас KOI8-R), зеркально
-	// чтению -- иначе первое же сохранение переводит файл в UTF-8, и откат на
-	// прежнюю сборку становится невозможен (issue #3681).
-	const std::string on_disk = native_text::to_disk(out.str());
+	// Граница записи: userdata хранится в нативной кодировке, поэтому пишем как есть.
+	// Чтение (from_disk_text/from_disk_line) принимает и старый KOI8-R, так что файлы,
+	// ещё не переведённые, читаются по-прежнему (issue #3787).
+	const std::string on_disk = out.str();
 	file.write(on_disk.data(), static_cast<std::streamsize>(on_disk.size()));
 	file.close();
 

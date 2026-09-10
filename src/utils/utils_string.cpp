@@ -1,4 +1,5 @@
-//#include "utils_string.h"
+//#include <string_view>
+#include "utils_string.h"
 
 #include <cstring>
 
@@ -242,24 +243,44 @@ std::string FirstWordOnString(std::string s, std::string mask) {
 	return s;
 }
 
-// аналог one_argument для string
+// аналог one_argument для string (тот вдобавок понижает регистр -- см. ExtractFirstArgumentLower)
 // пропускает ведущие пробелы, возвращает первое слово, в remains остаток после пробела
 // безопасно вызывать как ExtractFirstArgument(str, str) - нет проблем с алиасингом
 std::string ExtractFirstArgument(const std::string &s, std::string &remains) {
-	auto start = s.find_first_not_of(' ');
+	// Разделители те же, что у a_isspace: раньше резали только по пробелу, и табуляция между
+	// аргументами склеивала два поля в одно -- в триггерах это вполне достижимо.
+	static constexpr std::string_view kSpaces = " \t\r\n\v\f";
+
+	const auto start = s.find_first_not_of(kSpaces);
 	if (start == std::string::npos) {
 		remains.clear();
 		return {};
 	}
-	auto space_pos = s.find(' ', start);
-	if (space_pos != std::string::npos) {
-		std::string word = s.substr(start, space_pos - start);
-		remains = s.substr(space_pos + 1);
+
+	const auto word_end = s.find_first_of(kSpaces, start);
+	if (word_end == std::string::npos) {
+		std::string word = s.substr(start);
+		remains.clear();
 		return word;
 	}
-	std::string word = s.substr(start);
-	remains.clear();
+
+	std::string word = s.substr(start, word_end - start);
+	// Остаток отдаём без ведущих пробелов: прежний substr(word_end + 1) пропускал ровно один, и
+	// каждый вызывающий дочищал остаток сам.
+	const auto rest_begin = s.find_first_not_of(kSpaces, word_end);
+	remains = (rest_begin == std::string::npos) ? std::string() : s.substr(rest_begin);
 	return word;
+}
+
+std::string ExtractFirstArgumentLower(const std::string &s, std::string &remains) {
+	std::string word = ExtractFirstArgument(s, remains);
+	native_text::to_lower(word);
+	return word;
+}
+
+std::string ExtractFirstArgumentLower(const std::string &s) {
+	std::string remains;
+	return ExtractFirstArgumentLower(s, remains);
 }
 
 std::string SubstToLow(std::string s) {
@@ -1117,6 +1138,22 @@ void name_convert(std::string &text) {
 		// персонажа (issue #3681).
 		native_text::capitalize_first(text);
 	}
+}
+
+std::string ScreenRuler(std::size_t width) {
+	// Метка ставится так, чтобы её последняя цифра пришлась НА свою позицию: "5" на пятый
+	// знак, "80" на восьмидесятый. Раньше метка начиналась с позиции и хвост последней
+	// вылезал за край -- полоска в 80 знаков печаталась 81-м, и игрок с окном ровно в 80
+	// видел перенос и заключал, что у него 79.
+	std::string ruler(width, '.');
+	for (std::size_t mark = 5; mark <= width; mark += 5) {
+		const std::string label = std::to_string(mark);
+		if (label.size() > mark) {
+			continue;                       // метка не помещается от начала строки
+		}
+		ruler.replace(mark - label.size(), label.size(), label);
+	}
+	return ruler;
 }
 
 // vim: ts=4 sw=4 tw=0 noet syntax=cpp :

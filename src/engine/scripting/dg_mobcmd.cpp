@@ -64,7 +64,7 @@ struct mob_command_info {
 extern int reloc_target;
 extern Trigger *cur_trig;
 
-void sub_write(char *arg, CharData *ch, byte find_invis, int targets);
+void sub_write(char *arg, CharData *ch, int find_invis, int targets);
 RoomData *get_room(const char *name);
 ObjData *get_obj_by_char(CharData *ch, char *name);
 // * Local functions.
@@ -1433,7 +1433,7 @@ void do_mzoneecho(CharData *ch, char *argument, int/* cmd*/, int/* subcmd*/, Tri
 	ZoneRnum zone;
 	char zone_name[kMaxInputLength], buf[kMaxInputLength], *msg;
 
-	msg = any_one_arg(argument, zone_name);
+	msg = one_argument(argument, zone_name);
 	skip_spaces(&msg);
 
 	if (!*zone_name || !*msg) {
@@ -1529,7 +1529,7 @@ bool mob_script_command_interpreter(CharData *ch, char *argument, Trigger *trig)
 	if (!*argument)
 		return false;
 
-	line = any_one_arg(argument, arg);
+	line = one_argument(argument, arg);
 
 	// find the command
 	int cmd = 0;

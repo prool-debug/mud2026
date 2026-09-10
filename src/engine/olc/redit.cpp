@@ -34,6 +34,7 @@
 #include "engine/core/sysdep.h"
 #include "engine/core/conf.h"
 #include "gameplay/mechanics/dungeons.h"
+#include <fmt/format.h>
 
 #include <sys/stat.h>
 
@@ -486,9 +487,9 @@ void redit_disp_sector_menu(DescriptorData *d) {
 	SendMsgToChar("[H[J", d->character);
 #endif
 	for (counter = 0; counter < NUM_ROOM_SECTORS; counter++) {
-		snprintf(buf, sizeof(buf), "%s%2d%s) %-20.20s %s", grn, counter, nrm,
-				sector_types[counter], !(++columns % 2) ? "\r\n" : "");
-		SendMsgToChar(buf, d->character.get());
+		SendMsgToChar(fmt::format("{}{:2d}{}) {:<20.20} {}",
+									  grn, counter, nrm, sector_types[counter], !(++columns % 2) ? "\r\n" : ""),
+					  d->character.get());
 	}
 	SendMsgToChar("\r\nТип поверхности в комнате : ", d->character.get());
 	OLC_MODE(d) = REDIT_SECTOR;
@@ -668,7 +669,8 @@ void redit_parse(DescriptorData *d, char *arg) {
 					redit_disp_menu(d);
 					break;
 			}
-			olc_log("%s command %c", GET_NAME(d->character), *arg);
+			olc_log("%s command %s", GET_NAME(d->character),
+					std::string(arg, native_text::char_bytes(arg)).c_str());
 			return;
 
 		case OLC_SCRIPT_EDIT:

@@ -68,11 +68,11 @@ void save() {
 			stuf_node.append_attribute("cant_msg_a") = i->second->cant_msg_a.c_str();
 	}
 
-	// Граница записи: XML уходит на диск в кодировке мира, а не в нативной
-	// (issue #3681).
+	// Граница записи: XML лежит в нативной кодировке, пишем как есть. Чтение
+	// (read_data_file) принимает и старый KOI8-R (issue #3787).
 	std::ostringstream xml;
 	doc.save(xml, "\t", pugi::format_default, pugi::encoding_utf8);
-	native_text::write_file(LIB_USERDATA"named_items.xml", xml.str());
+	native_text::write_file_native(LIB_USERDATA"named_items.xml", xml.str());
 }
 
 bool check_named(CharData *ch, const ObjData *obj, const bool simple) {
@@ -176,7 +176,10 @@ bool parse_nedit_menu(CharData *ch, char *arg) {
 	if ((*buf1 < '1' || *buf1 > '8') && (native_text::first_char_code_lower(buf1) != rus::kVe
 			&& native_text::first_char_code_lower(buf1) != rus::kHa
 			&& native_text::first_char_code_lower(buf1) != rus::kU)) {
-		SendMsgToChar(ch, "Неверный параметр %c!\r\n", *buf1);
+		// Печатаем символ целиком, а не первый байт: под UTF-8 русская буква в char не влезает,
+		// и игрок получал в ответ обломок вместо своей буквы (issue #3797).
+		SendMsgToChar(fmt::format("Неверный параметр {}!\r\n",
+								  std::string_view(buf1, native_text::char_bytes(buf1))), ch);
 		return false;
 	}
 	if (!*buf2 && native_text::first_char_code_lower(buf1) != rus::kVe

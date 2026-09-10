@@ -108,13 +108,13 @@ int im_get_recipe_by_name(char *name) {
 			break;
 
 		ok = true;
-		temp = any_one_arg(imrecipes[rid].name, first);
-		temp2 = any_one_arg(name, first2);
+		temp = one_argument(imrecipes[rid].name, first);
+		temp2 = one_argument(name, first2);
 		while (*first && *first2 && ok) {
 			if (!utils::IsAbbr(first2, first))
 				ok = false;
-			temp = any_one_arg(temp, first);
-			temp2 = any_one_arg(temp2, first2);
+			temp = one_argument(temp, first);
+			temp2 = one_argument(temp2, first2);
 		}
 		if (ok && !*first2)
 			break;
@@ -1018,7 +1018,9 @@ void do_rset(CharData *ch, char *argument, int/* cmd*/, int/* subcmd*/) {
 		SendMsgToChar("Формат: rset <игрок> '<рецепт>' <значение>\r\n", ch);
 		strcpy(help, "Зарегистрированные рецепты:\r\n");
 		for (qend = 0, i = 0; i <= top_imrecipes; i++) {
-			sprintf(help + strlen(help), "%30s", imrecipes[i].name);
+			// Ширину поля считает fmt: printf меряет её в байтах, и русское название рецепта
+			// занимало вдвое больше, чем показывал %30s -- колонки разъезжались (issue #3797).
+			strcat(help, fmt::format("{:>30}", imrecipes[i].name).c_str());
 			if (qend++ % 2 == 1) {
 				strcat(help, "\r\n");
 				SendMsgToChar(help, ch);

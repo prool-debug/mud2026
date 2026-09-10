@@ -62,6 +62,24 @@ extern CharData *mob_proto;
 namespace world_loader
 {
 
+namespace {
+
+// Мир на диске -- UTF-8, то есть та же кодировка, в которой движок держит текст (issue #3787).
+// Поэтому пишем как есть: native_text::write_file здесь не годится, он переводит текст
+// в кодировку диска и вернул бы зону в KOI8-R. Загрузка принимает обе кодировки
+// (from_disk_text), так что мир, переведённый не целиком, читается и таким.
+bool WriteWorldFile(const std::string &path, const std::string &text) {
+	std::ofstream out(path, std::ios::binary);
+	if (!out) {
+		return false;
+	}
+	out.write(text.data(), static_cast<std::streamsize>(text.size()));
+	return out.good();
+}
+
+}  // namespace
+
+
 namespace
 {
 
@@ -1258,7 +1276,7 @@ Trigger* YamlWorldDataSource::ParseTriggerNode(const YAML::Node &root)
 	const auto script_language = ParseTriggerScriptLanguage(root);
 
 	// Create trigger (note: rnum will be assigned during merge)
-	auto trig = new Trigger(-1, std::move(name), static_cast<byte>(attach_type), trigger_type);
+	auto trig = new Trigger(-1, std::move(name), attach_type, trigger_type);
 	GET_TRIG_NARG(trig) = narg;
 	trig->add_flag = GetInt(root, "add_flag", 0) != 0;
 	trig->arglist = arglist;
@@ -1824,7 +1842,7 @@ CharData YamlWorldDataSource::ParseMobNode(const YAML::Node &root)
 									  ENpcRace::kBasic, ENpcRace::kLastNpcRace);
 
 	// Physical attributes -- bounds mirror legacy interpret_espec.
-	GET_SIZE(&mob) = std::clamp<byte>(GetInt(root, "size", 0), 0, 100);
+	GET_SIZE(&mob) = std::clamp<int>(GetInt(root, "size", 0), 0, 100);
 	GET_HEIGHT(&mob) = std::clamp(GetInt(root, "height", 0), 0, 200);
 	GET_WEIGHT(&mob) = std::clamp(GetInt(root, "weight", 0), 0, 200);
 
@@ -1909,10 +1927,10 @@ CharData YamlWorldDataSource::ParseMobNode(const YAML::Node &root)
 		mob.add_abils.mresist = std::clamp(GetInt(enhanced, "mresist", 0), 0, 100);
 		mob.add_abils.presist = std::clamp(GetInt(enhanced, "presist", 0), 0, 100);
 		mob.mob_specials.attack_type = std::clamp(GetInt(enhanced, "bare_hand_attack", 0), 0, 99);
-		mob.mob_specials.like_work = std::clamp<byte>(GetInt(enhanced, "like_work", 0), 0, 100);
-		mob.mob_specials.MaxFactor = std::clamp<byte>(GetInt(enhanced, "max_factor", 0), 0, 127);
-		mob.mob_specials.extra_attack = std::clamp<byte>(GetInt(enhanced, "extra_attack", 0), 0, 127);
-		mob.set_remort(std::clamp<byte>(GetInt(enhanced, "mob_remort", 0), 0, 100));
+		mob.mob_specials.like_work = std::clamp<int>(GetInt(enhanced, "like_work", 0), 0, 100);
+		mob.mob_specials.MaxFactor = std::clamp<int>(GetInt(enhanced, "max_factor", 0), 0, 127);
+		mob.mob_specials.extra_attack = std::clamp<int>(GetInt(enhanced, "extra_attack", 0), 0, 127);
+		mob.set_remort(std::clamp<int>(GetInt(enhanced, "mob_remort", 0), 0, 100));
 
 		if (enhanced["special_bitvector"])
 		{
@@ -2743,14 +2761,10 @@ bool YamlWorldDataSource::WriteYamlAtomic(const std::string &filepath, const YAM
 		YAML::Emitter emitter;
 		emitter << node;
 
-		// Файл мира на диске -- KOI8-R, а движок держит текст в нативной кодировке. Собираем
-		// в память и перекодируем один раз при записи через native_text::write_file: иначе
-		// первое же сохранение (OLC или очередь "Reboot saving" из ConvertObjValues) молча
-		// переписывает зону в UTF-8, а загрузка прогоняет её через from_koi8 второй раз --
-		// и мир превращается в кракозябры (issue #3681).
+		// Мир пишется как есть, в нативной кодировке -- см. WriteWorldFile выше (issue #3787).
 		std::ostringstream out;
 		out << emitter.c_str();
-		if (!native_text::write_file(temp_filepath, out.str()))
+		if (!WriteWorldFile(temp_filepath, out.str()))
 		{
 			log("SYSERR: Failed to open temp file for writing: %s", temp_filepath.c_str());
 			return false;
@@ -2794,7 +2808,7 @@ bool YamlWorldDataSource::WriteIndexYaml(const std::string &filepath,
 				out << "- " << v << "\n";
 			}
 		}
-		if (!native_text::write_file(temp_filepath, out.str()))
+		if (!WriteWorldFile(temp_filepath, out.str()))
 		{
 			log("SYSERR: Failed to open temp file for index: %s", temp_filepath.c_str());
 			return false;
@@ -3191,7 +3205,7 @@ void YamlWorldDataSource::SaveZone(int zone_rnum)
 		yaml.DecreaseIndent();
 	}
 
-	if (!native_text::write_file(temp_file, out.str()))
+	if (!WriteWorldFile(temp_file, out.str()))
 	{
 		log("SYSERR: Failed to open temp file for writing: %s", temp_file.c_str());
 		return;
@@ -3382,7 +3396,7 @@ bool YamlWorldDataSource::SaveTriggers(int zone_rnum, int specific_vnum, int not
 			EmitTriggerBody(yaml, trig);
 			yaml.DecreaseIndent();
 		}
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			return false;
@@ -3420,7 +3434,7 @@ bool YamlWorldDataSource::SaveTriggers(int zone_rnum, int specific_vnum, int not
 		yaml.EmptyLine();
 		EmitTriggerBody(yaml, trig);
 
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			continue;
@@ -3688,7 +3702,7 @@ void YamlWorldDataSource::SaveRooms(int zone_rnum, int specific_vnum)
 			EmitRoomBody(yaml, out, room);
 			yaml.DecreaseIndent();
 		}
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			return;
@@ -3724,7 +3738,7 @@ void YamlWorldDataSource::SaveRooms(int zone_rnum, int specific_vnum)
 		yaml.EmptyLine();
 		EmitRoomBody(yaml, out, room);
 
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			continue;
@@ -3814,10 +3828,10 @@ void YamlWorldDataSource::EmitMobBody(Koi8rYamlEmitter &yaml, std::ostream &out,
 	yaml.IncreaseIndent();
 
 	yaml.Key("dice_count");
-	yaml.Value(static_cast<int>(mob.mem_queue.total));  // byte -> int
+	yaml.Value(mob.mem_queue.total);
 
 	yaml.Key("dice_size");
-	yaml.Value(static_cast<int>(mob.mem_queue.stored));  // byte -> int
+	yaml.Value(mob.mem_queue.stored);
 
 	yaml.Key("bonus");
 	yaml.Value(mob.get_hit());
@@ -3830,10 +3844,10 @@ void YamlWorldDataSource::EmitMobBody(Koi8rYamlEmitter &yaml, std::ostream &out,
 	yaml.IncreaseIndent();
 
 	yaml.Key("dice_count");
-	yaml.Value(static_cast<int>(mob.mob_specials.damnodice));  // byte -> int
+	yaml.Value(mob.mob_specials.damnodice);
 
 	yaml.Key("dice_size");
-	yaml.Value(static_cast<int>(mob.mob_specials.damsizedice));  // byte -> int
+	yaml.Value(mob.mob_specials.damsizedice);
 
 	yaml.Key("bonus");
 	yaml.Value(mob.real_abils.damroll);
@@ -3847,10 +3861,10 @@ void YamlWorldDataSource::EmitMobBody(Koi8rYamlEmitter &yaml, std::ostream &out,
 	yaml.IncreaseIndent();
 
 	yaml.Key("dice_count");
-	yaml.Value(static_cast<int>(mob.mob_specials.GoldNoDs));  // byte -> int
+	yaml.Value(mob.mob_specials.GoldNoDs);
 
 	yaml.Key("dice_size");
-	yaml.Value(static_cast<int>(mob.mob_specials.GoldSiDs));  // byte -> int
+	yaml.Value(mob.mob_specials.GoldSiDs);
 
 	yaml.Key("bonus");
 	yaml.Value(currencies::GetHand(mob, currencies::kGold));
@@ -4335,7 +4349,7 @@ void YamlWorldDataSource::SaveMobs(int zone_rnum, int specific_vnum)
 			EmitMobBody(yaml, out, *mob);
 			yaml.DecreaseIndent();
 		}
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			return;
@@ -4373,7 +4387,7 @@ void YamlWorldDataSource::SaveMobs(int zone_rnum, int specific_vnum)
 		yaml.EmptyLine();
 		EmitMobBody(yaml, out, *mob);
 
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			continue;
@@ -4810,7 +4824,7 @@ void YamlWorldDataSource::SaveObjects(int zone_rnum, int specific_vnum)
 			EmitObjectBody(yaml, out, obj);
 			yaml.DecreaseIndent();
 		}
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			return;
@@ -4848,7 +4862,7 @@ void YamlWorldDataSource::SaveObjects(int zone_rnum, int specific_vnum)
 		yaml.EmptyLine();
 		EmitObjectBody(yaml, out, obj);
 
-		if (!native_text::write_file(temp_file, out.str()))
+		if (!WriteWorldFile(temp_file, out.str()))
 		{
 			log("SYSERR: Failed to open %s for writing", temp_file.c_str());
 			continue;

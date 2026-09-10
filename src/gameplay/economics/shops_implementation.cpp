@@ -600,7 +600,7 @@ void shop_node::process_cmd(CharData *ch, CharData *keeper, char *argument, cons
 		}
 	} else {
 		skip_spaces(&argument);
-		int i, dotmode = find_all_dots(argument);
+		int i, dotmode = ParseAllPrefix(argument);
 		std::string buffer2(argument);
 		switch (dotmode) {
 			case kFindIndiv: {
@@ -971,10 +971,15 @@ void shop_node::do_shop_cmd(CharData *ch, CharData *keeper, ObjData *obj, std::s
 			return;
 		}
 
+		// Условия те же, что в ветке "Продать": иначе торговец называл цену за предмет, который
+		// потом отказывался брать. Дешёвая вещь схлопывается до одной куны ("кожаная фляга" за
+		// две куны при любом profit), а продажа за куну и меньше запрещена -- вот он и обещал
+		// то, чего не сделает.
 		if (obj->has_flag(EObjFlag::kNosell)
 			|| obj->has_flag(EObjFlag::kNamed)
 			|| obj->has_flag(EObjFlag::kRepopDecay)
-			|| obj->has_flag(EObjFlag::kZonedecay)) {
+			|| obj->has_flag(EObjFlag::kZonedecay)
+			|| buy_price <= 1) {
 			tell_to_char(keeper, ch, ShopMsg(ESM::kWontBuy).c_str());
 			return;
 		} else {

@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "utils/utils.h"
+#include "utils/mud_string.h"
 
 struct
 {
@@ -582,6 +583,185 @@ TEST(Utils_String, IsEquivalent_OrderMatters)
 	// Слова запроса ищутся по порядку, пропуская лишние слова имени.
 	EXPECT_TRUE(utils::IsEquivalent("hel wor", "hello big world"));
 	EXPECT_FALSE(utils::IsEquivalent("wor hel", "hello big world"));
+}
+
+TEST(Utils_String, IsEquivalent_MatchesIsname)
+{
+	// Это строковый аналог isname, которым ищут предметы и персонажей по алиасам. Так что
+	// на том, как игрок набирает цель, обе функции обязаны отвечать одинаково.
+	const char *aliases = "книга возникновении огня огненная";
+	for (const char *query : {"кни.огн", "кни огн", "огн.кни", "книга", "кни.нет", "огненная"}) {
+		EXPECT_EQ(utils::IsEquivalent(query, aliases), isname(query, aliases)) << "запрос: " << query;
+	}
+}
+
+TEST(Utils_String, IsEquivalent_HyphenStaysInsideTheWord)
+{
+	// Разделитель у нас точка, дефис -- часть слова, поэтому правильный запрос к дефисному
+	// имени выглядит так, и обе функции находят по нему одинаково.
+	const char *aliases = "фехтовальный металлический веер шань-цзы";
+	EXPECT_TRUE(utils::IsEquivalent("веер.шань-цзы", aliases));
+	EXPECT_TRUE(isname("веер.шань-цзы", aliases));
+	EXPECT_TRUE(utils::IsEquivalent("шань-цзы", aliases));
+	EXPECT_TRUE(isname("шань-цзы", aliases));
+
+	// А вот дробление имени по дефису -- дикумадовская добавка isname, у которого разделитель
+	// любой не-буквенно-цифровой знак. Правилу она не соответствует, и на std::string её нет.
+	EXPECT_TRUE(isname("цзы", aliases));
+	EXPECT_FALSE(utils::IsEquivalent("цзы", aliases));
+}
+
+// ===== ExtractFirstArgument =====
+
+TEST(Utils_String, ExtractFirstArgument_SplitsWordAndRest)
+{
+	std::string rest;
+	EXPECT_EQ(utils::ExtractFirstArgument("frozen 30 за спам", rest), "frozen");
+	EXPECT_EQ(rest, "30 за спам");
+}
+
+TEST(Utils_String, ExtractFirstArgument_TabIsASeparator)
+{
+	// Раньше резали только по пробелу, и табуляция склеивала два аргумента в один.
+	std::string rest;
+	EXPECT_EQ(utils::ExtractFirstArgument("frozen\t30 спам", rest), "frozen");
+	EXPECT_EQ(rest, "30 спам");
+}
+
+TEST(Utils_String, ExtractFirstArgument_RestHasNoLeadingSpaces)
+{
+	std::string rest;
+	EXPECT_EQ(utils::ExtractFirstArgument("email   Vasya@Mail.RU", rest), "email");
+	EXPECT_EQ(rest, "Vasya@Mail.RU") << "остаток отдаётся уже подчищенным";
+}
+
+TEST(Utils_String, ExtractFirstArgument_SingleWordLeavesEmptyRest)
+{
+	std::string rest = "мусор";
+	EXPECT_EQ(utils::ExtractFirstArgument("  одно  ", rest), "одно");
+	EXPECT_TRUE(rest.empty());
+}
+
+TEST(Utils_String, ExtractFirstArgument_EmptyInputGivesEmptyParts)
+{
+	std::string rest = "мусор";
+	EXPECT_TRUE(utils::ExtractFirstArgument("   ", rest).empty());
+	EXPECT_TRUE(rest.empty());
+}
+
+TEST(Utils_String, ExtractFirstArgument_KeepsCaseAndFillWords)
+{
+	// В отличие от one_argument: регистр не понижается, служебные слова не пропускаются.
+	std::string rest;
+	EXPECT_EQ(utils::ExtractFirstArgument("FROZEN xxx", rest), "FROZEN");
+	EXPECT_EQ(utils::ExtractFirstArgument("to кто", rest), "to");
+	EXPECT_EQ(rest, "кто");
+}
+
+TEST(Utils_String, ExtractFirstArgument_SameVariableForInputAndRest)
+{
+	// Основной способ применения: разбор по одному слову в цикле.
+	std::string remains = "dgaffect цель свойство";
+	EXPECT_EQ(utils::ExtractFirstArgument(remains, remains), "dgaffect");
+	EXPECT_EQ(utils::ExtractFirstArgument(remains, remains), "цель");
+	EXPECT_EQ(utils::ExtractFirstArgument(remains, remains), "свойство");
+	EXPECT_TRUE(remains.empty());
+}
+
+TEST(Utils_String, ExtractFirstArgument_KeepsMultibyteLettersIntact)
+{
+	std::string rest;
+	EXPECT_EQ(utils::ExtractFirstArgument("волчица съела кролика", rest), "волчица");
+	EXPECT_EQ(rest, "съела кролика");
+}
+
+// Тестовая полоска ширины экрана (ScreenRuler) -- issue #3822.
+//
+// По ней игрок меряет реальную ширину окна, поэтому длина полоски обязана быть ровно
+// запрошенной. Раньше метка НАЧИНАЛАСЬ со своей позиции, и последняя не помещалась:
+// при ширине, кратной пяти, строка выходила на 1-2 знака длиннее (80 печаталось 81-м),
+// игрок видел перенос и решал, что у него 79.
+
+TEST(Utils_String, ScreenRulerHasExactlyRequestedWidth) {
+	// Кратные пяти -- та самая регрессия: только на них последняя метка и упиралась в край.
+	for (std::size_t width : {5u, 30u, 78u, 79u, 80u, 81u, 82u, 85u, 100u, 155u, 300u}) {
+		EXPECT_EQ(ScreenRuler(width).size(), width) << "ширина " << width;
+	}
+}
+
+TEST(Utils_String, ScreenRulerMarksEndAtTheirPosition) {
+	const std::string ruler = ScreenRuler(100);
+	// Метка заканчивается НА своей позиции: "5" на пятом знаке, "80" на восьмидесятом,
+	// "100" на сотом. Иначе по полоске нельзя отсчитать колонку.
+	EXPECT_EQ(ruler.substr(4, 1), "5");
+	EXPECT_EQ(ruler.substr(78, 2), "80");
+	EXPECT_EQ(ruler.substr(97, 3), "100");
+}
+
+TEST(Utils_String, ScreenRulerLooksAsExpected) {
+	EXPECT_EQ(ScreenRuler(30), "....5...10...15...20...25...30");
+	EXPECT_EQ(ScreenRuler(80),
+			  "....5...10...15...20...25...30...35...40...45...50...55...60...65...70...75...80");
+}
+
+TEST(Utils_String, ScreenRulerHandlesWidthsBelowFirstMark) {
+	// Меньше пяти знаков -- меток нет вовсе, но длина всё равно запрошенная.
+	EXPECT_EQ(ScreenRuler(0), "");
+	EXPECT_EQ(ScreenRuler(4), "....");
+}
+
+// ===== ExtractFirstArgumentLower =====
+// Полный строковый аналог one_argument: сверяемся именно с ним -- на нём держится вся замена
+// глобального arg в командах (#3807).
+
+TEST(Utils_String, ExtractFirstArgumentLower_MatchesOneArgumentOnPlainWords)
+{
+	char legacy[kMaxInputLength];
+	std::string rest;
+	const char *legacy_rest = one_argument("сбить гоблина палкой", legacy);
+
+	EXPECT_EQ(utils::ExtractFirstArgumentLower("сбить гоблина палкой", rest), legacy);
+	EXPECT_EQ(rest, legacy_rest);
+}
+
+TEST(Utils_String, ExtractFirstArgumentLower_LowersCase)
+{
+	// one_argument понижает регистр, ExtractFirstArgument -- нет.
+	EXPECT_EQ(utils::ExtractFirstArgumentLower("ГОБЛИН"), "гоблин");
+	EXPECT_EQ(utils::ExtractFirstArgumentLower("FROZEN"), "frozen");
+}
+
+TEST(Utils_String, ExtractFirstArgumentLower_KeepsFillWords)
+{
+	// in from with the on at to больше не пропускаются -- ни здесь, ни в one_argument (#3814):
+	// из-за пропуска молча исчезал аргумент-ключ вроде "hide on".
+	char legacy[kMaxInputLength];
+	one_argument("on причина", legacy);
+	EXPECT_STREQ(legacy, "on");
+
+	std::string rest;
+	EXPECT_EQ(utils::ExtractFirstArgumentLower("the goblin палкой", rest), "the");
+	EXPECT_EQ(rest, "goblin палкой");
+}
+
+TEST(Utils_String, ExtractFirstArgumentLower_EmptyInput)
+{
+	std::string rest = "мусор";
+	EXPECT_TRUE(utils::ExtractFirstArgumentLower("   ", rest).empty());
+	EXPECT_TRUE(rest.empty());
+}
+
+TEST(Utils_String, ExtractFirstArgumentLower_TabIsASeparator)
+{
+	std::string rest;
+	EXPECT_EQ(utils::ExtractFirstArgumentLower("сбить\tгоблина", rest), "сбить");
+	EXPECT_EQ(rest, "гоблина");
+}
+
+TEST(Utils_String, ExtractFirstArgumentLower_KeepsMultibyteLettersIntact)
+{
+	// Понижение регистра идёт посимвольно: русская буква не должна развалиться на байты.
+	EXPECT_EQ(utils::ExtractFirstArgumentLower("ВОЛЧИЦА съела"), "волчица");
 }
 
 // vim: ts=4 sw=4 tw=0 noet syntax=cpp :

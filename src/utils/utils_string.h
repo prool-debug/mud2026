@@ -1,6 +1,8 @@
 #ifndef UTILS_STRING_HPP_
 #define UTILS_STRING_HPP_
 
+#include <cstddef>
+
 #include <cstring>
 #include <fstream>
 #include <list>
@@ -106,11 +108,23 @@ std::string RemoveColors(std::string string);
 shared_string_ptr GetStringWithoutColors(const char *string);
 std::string GetStringWithoutColors(const std::string &string);
 
-// Аналог isstring для std::string
-// поиск аббревиатур по тексту с пропуском слов
+// Строковый аналог isname (никакого isstring в коде нет и не было -- опечатка).
+// Слова abbr ищутся среди слов words по порядку, лишние слова words пропускаются; каждое
+// слово сравнивается по префиксу и без учёта регистра. Так игрок и набирает цель: "кни.огн"
+// находит "книга возникновении огня", а "огн.кни" -- уже нет, порядок значим.
+//
+// Разделитель слов -- точка (а также подчёркивание и пробел). Дефис остаётся частью слова, как
+// и положено: правильный запрос к "вееру шань-цзы" -- "веер.шань-цзы", и его находят обе
+// функции. isname вдобавок режет по любому не-буквенно-цифровому знаку, дефис включая, поэтому
+// у него срабатывает ещё и "цзы" -- это дикумадовское наследие, а не наше правило, полагаться
+// на него не стоит.
+//
+// Пустой abbr сюда не приходит: вызывающие отсекают его сами (do_style, show featinfo,
+// currencies::FindBySearch). Вернёт он на нём true -- совпадение с чем угодно, тогда как
+// isname отвечает "нет"; это следствие реализации, а не обещание.
 // abbr - список кратких аббревиатур, words текст\фраза
 bool IsEquivalent(const std::string &abbr, const std::string &words);
-// поиск abbr  без пропусков слов в строке words
+// То же, но без пропусков: слова abbr должны совпасть с первыми словами words подряд.
 bool IsEqual(const std::string &abbr, const std::string &words);
 // Совпадают ли первые chars символов у обеих строк (без учёта регистра). Если символов
 // в какой-то из строк меньше -- не совпадают. Единица счёта -- символ, а не байт: пределы
@@ -144,10 +158,33 @@ std::vector<std::string> Split(const std::string s, char delimiter = ' ');
  */
 std::vector<std::string> SplitAny(const std::string s, std::string any);
 
-// аналог one_argument для string
-// s - разделяемая строка
-// возвращает первое слово, в remains остаток, если нет пробелов то строки пустые
+/**
+ * Отделить первое слово строки от остатка -- разбор аргументов на std::string, без фиксированных
+ * буферов (в отличие от one_argument и half_chop, которым нужен буфер на kMaxStringLength).
+ *
+ * Возвращает первое слово, в remains кладёт всё, что после него, уже без ведущих пробелов.
+ * Строка из одного слова даёт это слово и пустой остаток; пустая или из одних пробелов -- две
+ * пустые строки. Передавать одну и ту же переменную и как s, и как remains можно: слово
+ * копируется раньше, чем перезаписывается остаток.
+ *
+ * Разделителями считаются пробел, табуляция и переводы строки -- то же, что у a_isspace.
+ *
+ * Отличие от one_argument ровно одно: тот вдобавок приводит слово к нижнему регистру. Если
+ * это нужно (слово дальше сравнивается с учётом регистра), берите ExtractFirstArgumentLower --
+ * она и есть полный строковый аналог one_argument.
+ */
 std::string ExtractFirstArgument(const std::string &s, std::string &remains);
+
+/**
+ * То же, что ExtractFirstArgument, только слово приводится к нижнему регистру -- полный
+ * строковый аналог one_argument, но без буфера на kMaxStringLength. При переносе кода со
+ * связки `one_argument(argument, arg)` через глобальный буфер (#3807) берите её: поведение
+ * команды не поменяется.
+ *
+ * Перегрузка без remains -- когда нужно только первое слово.
+ */
+std::string ExtractFirstArgumentLower(const std::string &s, std::string &remains);
+std::string ExtractFirstArgumentLower(const std::string &s);
 
 // первое слово разделенное маской
 std::string FirstWordOnString(std::string s, std::string mask);
@@ -429,6 +466,11 @@ void name_convert(std::string &text);
 
 /// Compact experience formatting (e.g. 1234567 -> "1 тыс"): thousands/millions/billions suffix.
 std::string ExpFormat(long long exp);
+
+/// Тестовая полоска ширины экрана: точки с числовой меткой каждые пять знаков
+/// ("....5...10...15..."). Метка ЗАКАНЧИВАЕТСЯ на своей позиции, поэтому строка выходит
+/// ровно `width` знаков -- по ней и меряют реальную ширину окна. Чистый ASCII.
+std::string ScreenRuler(std::size_t width);
 
 #endif // UTILS_STRING_HPP_
 

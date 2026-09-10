@@ -9,6 +9,7 @@
 ***************************************************************************/
 
 #include "olc.h"
+#include <fmt/format.h>
 
 #include "engine/db/obj_prototypes.h"
 #include "engine/entities/obj_data.h"
@@ -399,7 +400,7 @@ void olc_saveinfo(CharData *ch) {
 // ------------------------------------------------------------
 
 // * Add an entry to the 'to be saved' list.
-void olc_add_to_save_list(int zone, byte type) {
+void olc_add_to_save_list(int zone, int type) {
 	struct olc_save_info *lnew;
 
 	// * Return if it's already in the list.
@@ -415,7 +416,7 @@ void olc_add_to_save_list(int zone, byte type) {
 }
 
 // * Remove an entry from the 'to be saved' list.
-void olc_remove_from_save_list(int zone, byte type) {
+void olc_remove_from_save_list(int zone, int type) {
 	struct olc_save_info **entry;
 	struct olc_save_info *temp;
 
@@ -444,8 +445,9 @@ void disp_planes_values(DescriptorData *d, const char *names[], short num_column
 			c++;
 		if (d->character->GetLevel() < kLvlImplementator && *names[counter] == '*')
 			continue;
-		sprintf(buf, "&g%c%d&n) %-30.30s %s", c, plane, names[counter], !(++column % num_column) ? "\r\n" : "");
-		SendMsgToChar(buf, d->character.get());
+		SendMsgToChar(fmt::format("&g{}{}&n) {:<30.30} {}",
+								  c, plane, names[counter], !(++column % num_column) ? "\r\n" : ""),
+					  d->character.get());
 	}
 }
 
@@ -454,6 +456,11 @@ void disp_planes_values(DescriptorData *d, const char *names[], short num_column
  * saved to a file.  Use it only on buffers, not on the original
  * strings.
  */
+std::string strip_string(std::string text) {
+	std::erase(text, '\r');
+	return text;
+}
+
 void strip_string(char *buffer) {
 	char *ptr, *str;
 
@@ -473,7 +480,7 @@ void strip_string(char *buffer) {
  * attatched to a descriptor, sets all flags back to how they
  * should be.
  */
-void cleanup_olc(DescriptorData *d, byte cleanup_type) {
+void cleanup_olc(DescriptorData *d, int cleanup_type) {
 	if (d->olc) {
 		TrigeditSavePendingLuaOnCleanup(d);
 

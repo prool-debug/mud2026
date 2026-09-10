@@ -88,6 +88,7 @@ enum class EConState : uint8_t {
   kResetKin = 49,        // выбор расы после смены/удаления оной (или иного испоганивания значения)
   kResetRace = 50,        // выбор РОДА посла смены/сброса оного
   kConsole = 51,            // Интерактивная скриптовая консоль
+  kGetScreenWidth = 52,     // Ширина экрана при создании персонажа
   kMenuStats = 53,        // оплата сброса стартовых статов из главного меню
   kSedit = 54,            // sedit - редактирование сетов
   kResetReligion = 55,    // сброс религии из меню сброса статов
@@ -118,8 +119,8 @@ struct DescriptorData {
 
 	socket_t descriptor{};    // file descriptor for socket    //
 	char host[kHostLength + 1]{};    // hostname          //
-	byte bad_pws;        // number of bad pw attemps this login //
-	byte idle_tics;        // tics idle at password prompt     //
+	int bad_pws;        // number of bad pw attemps this login //
+	int idle_tics;        // tics idle at password prompt     //
 	EConState state;        // state of 'connectedness'    //
 	int desc_num;        // unique num assigned to desc      //
 	time_t input_time;
