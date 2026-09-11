@@ -1,3 +1,5 @@
+#define TEST_BUILD 1 // by prool
+
 #include "relocate.h"
 #include "administration/privilege.h"
 #include "gameplay/mechanics/mount.h"

@@ -2,6 +2,8 @@
 // Copyright (c) 2007 Krodo
 // Part of Bylins http://www.mud.ru
 
+#define TEST_BUILD 1 // by prool
+
 #include "privilege.h"
 
 #include "utils/logger.h"

@@ -4,6 +4,8 @@
 * (c) 2005 Krodo                                                              *
 ******************************************************************************/
 
+#define TEST_BUILD 1 // by prool
+
 #include "utils/utils_string.h"
 #include "house.h"
 #include "utils/russian_keys.h"

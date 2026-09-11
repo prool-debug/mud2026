@@ -3,6 +3,8 @@
  \brief issue.interpreter-cleaning: pre-game connection dialogue (login / menu / character creation),
         extracted from interpreter.cpp. Entry point ProcessLoginInput (was nanny).
 */
+#define TEST_BUILD 1 // by prool
+
 #include "interpreter.h"
 #include "utils/russian_keys.h"
 #include "utils/native_text.h"
