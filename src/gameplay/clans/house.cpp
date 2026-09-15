@@ -1543,7 +1543,7 @@ void Clan::CharToChannel(CharData *ch, std::string text, int subcmd) {
 	switch (subcmd) {
 		// своей дружине
 		case kScmdChannel: {
-			const std::string clan_text = fmt::format("{} дружине: &R'{}'.&n\r\n", GET_NAME(ch), text);
+			const std::string clan_text = fmt::format("{} дружине: &R'{}'.&w\r\n", GET_NAME(ch), text);
 			// вспомнить
 			CLAN(ch)->add_remember(clan_text, Remember::CLAN);
 
@@ -1559,7 +1559,7 @@ void Clan::CharToChannel(CharData *ch, std::string text, int subcmd) {
 				}
 			}
 
-			const std::string clan_self = fmt::format("Вы дружине: &R'{}'.&n\r\n", text);
+			const std::string clan_self = fmt::format("Вы дружине: &R'{}'.&w\r\n", text);
 			ch->remember_add(clan_self, Remember::ALL);
 			SendMsgToChar(clan_self, ch);
 
@@ -1568,7 +1568,7 @@ void Clan::CharToChannel(CharData *ch, std::string text, int subcmd) {
 
 			// союзникам
 		case kScmdAchannel: {
-			const std::string ally_text = fmt::format("{} союзникам: &G'{}'.&n\r\n", GET_NAME(ch), text);
+			const std::string ally_text = fmt::format("{} союзникам: &G'{}'.&w\r\n", GET_NAME(ch), text);
 			for (auto &clan : Clan::ClanList) {
 				if ((CLAN(ch)->CheckPolitics(clan->GetRent()) == kPoliticsAlliance
 					&& clan->CheckPolitics(CLAN(ch)->GetRent()) == kPoliticsAlliance)
@@ -1597,7 +1597,7 @@ void Clan::CharToChannel(CharData *ch, std::string text, int subcmd) {
 				}
 			}
 
-			const std::string ally_self = fmt::format("Вы союзникам: &G'{}'.&n\r\n", text);
+			const std::string ally_self = fmt::format("Вы союзникам: &G'{}'.&w\r\n", text);
 			ch->remember_add(ally_self, Remember::ALL);
 			SendMsgToChar(ally_self, ch);
 
