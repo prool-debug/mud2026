@@ -4135,45 +4135,6 @@ std::string Clan::print_imm_where_obj(const ObjData *obj) {
 	return str;
 }
 
-int Clan::print_spell_locate_object(CharData *ch, int count, std::string name) {
-	for (ClanListType::const_iterator clan = Clan::ClanList.begin(); clan != Clan::ClanList.end(); ++clan) {
-		ObjData *temp;
-		for (auto chest : world[GetRoomRnum((*clan)->chest_room)]->contents) {
-			if (Clan::is_clan_chest(chest)) {
-				for (temp = chest->get_contains(); temp; temp = temp->get_next_content()) {
-					if (!privilege::IsGod(ch)) {
-						if (number(1, 100) > (40 + MAX((GetRealInt(ch) - 25) * 2, 0))) {
-							continue;
-						}
-						if (temp->has_flag(EObjFlag::kNolocate)) {
-							continue;
-						}
-					}
-
-					if (!isname(name, temp->get_aliases().c_str())) {
-						continue;
-					}
-
-					std::string line = fmt::format("{} наход{}ся в хранилище дружины '{}'.",
-												   temp->get_short_description(),
-												   grammar::ObjPluralVerbEnding((temp)->get_sex()),
-												   (*clan)->GetAbbrev());
-					if (privilege::IsGrGod(ch)) {
-						line += fmt::format(" Vnum предмета: {}", GET_OBJ_VNUM(temp));
-					}
-					line += "\r\n";
-					SendMsgToChar(line, ch);
-					if (--count <= 0) {
-						return count;
-					}
-				}
-				break;
-			}
-		}
-	}
-	return count;
-}
-
 int Clan::GetClanWars(CharData *ch) {
 	int result = 0, p1 = 0;
 	if (ch->IsNpc() || !CLAN(ch)) {
