@@ -43,6 +43,10 @@ struct CreatureInfo {
 	int corpse_max_level = 0;  // highest source-corpse level that yields this tier
 	int min_rating = 0;        // smallest caster rating (level + skill-derived remort-equiv + 4)
 	int pick = 0;              // relative odds within a shared top corpse band (0 = the single tier)
+	// Предел дамролла этого вида нежити в автоатаке. Дамролл приходит из прототипа, подъёма
+	// и баффов (силы зла), и потолок у верхних видов должен быть выше, чем у младших, иначе
+	// бонусы упираются в общий кап подчинённого. 0 = потолок не задан, берётся общий.
+	int damroll_cap = 0;
 	CreatureScaling scaling;
 };
 
@@ -61,6 +65,8 @@ class AnimateDeadInfo {
 	// Tier lookups keyed by the summoned mob's proto vnum.
 	[[nodiscard]] const CreatureInfo *ByProtoVnum(int proto_vnum) const;
 	[[nodiscard]] int WeightOf(int proto_vnum) const;   // 0 if not a configured tier
+	// Потолок дамролла вида; 0 -- в конфиге не задан (вызывающий берёт общий предел).
+	[[nodiscard]] int DamrollCapOf(int proto_vnum) const;
 	[[nodiscard]] int LadderIndex(int proto_vnum) const;
 };
 
@@ -89,6 +95,9 @@ class AnimateDeadLoader : virtual public cfg_manager::IEditableCfgLoader {
 // Scale a freshly-read construct's stats off the caster's cast competence C, per the tier's
 // <scaling>. No-op for a mob whose vnum is not a configured tier.
 void SetupUndeadStats(CharData *ch, CharData *mob, double competence);
+// Только группа add_abils (броня, спасы, удача, инициатива): её стирает affect_total,
+// поэтому после наложения чар и аффектов её ставят заново. Повтор безопасен.
+void ApplyVolatileUndeadStats(CharData *mob, double competence);
 
 }  // namespace animate_dead
 

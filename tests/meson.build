@@ -42,6 +42,8 @@ test_sources = files(
     'spell_item_convert.cpp',
     'password.encoding.cpp',
     'act.makefood.cpp',
+    'charmice.damroll.cpp',
+    'shop.sale_price.cpp',
     'utils.editor.cpp',
     'utils.string.cpp',
     'utils.encoding.cpp',
